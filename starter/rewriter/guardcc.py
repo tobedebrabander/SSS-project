@@ -27,14 +27,20 @@ def instrument(code: bytes) -> bytes:
     for func in src.functions():
         # TODO: To help you, we already give some sample code you can get inspiration off.
         #       For more info, refer to the heading of the guardlib.py code to see the API docs for the functions you can use.
+        # if func.is_main:
+        #     rw.insert(func.body_open, " /* in main */")
+        # else:
+        #     rw.insert(func.body_open, " /* not in main */")
         if func.is_main:
-            rw.insert(func.body_open, " /* in main */")
-        else:
-            rw.insert(func.body_open, " /* not in main */")
+            rw.insert(func.body_open, "\n   guard_seal();")
 
     taken = src.address_taken_functions()
     if taken:
-        print(taken, file=sys.stderr)
+        c="\n__attribute__((constructor)) static void __guard_register_functions(void) {\n"
+        for name in taken:
+            c+=f"   guard_register((void *){name});\n"
+        c+="}\n"
+        rw.insert(len(code),c)
 
     return rw.result()
 # --- END CHANGE CODE HERE ---

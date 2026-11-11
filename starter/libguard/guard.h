@@ -58,9 +58,15 @@ void guard_ss_check_pop(void *ret, const char *file, int line);
 
 #else
 
-/* TODO: check fp, evaluate it exactly once, yield fp.
- * Usage: fp(x)  ->  GUARD_ICALL(fp)(x)                                */
-#define GUARD_ICALL(fp)       (fp)
+/* Check fp against the valid target table, evaluating it exactly once,
+ * and yield the checked value. Usage: fp(x)  ->  GUARD_ICALL(fp)(x)   */
+#define GUARD_ICALL(fp) ({                                          \
+    __typeof__(fp) guard_fp_ = (fp);                                \
+    if (!guard_is_valid((const void *)guard_fp_))                   \
+        guard_violation("icall", (const void *)guard_fp_,           \
+                        __FILE__, __LINE__);                        \
+    guard_fp_;                                                      \
+})
 
 /* TODO: first statement of every function.                            */
 #define GUARD_ENTER()         ((void)0)

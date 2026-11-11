@@ -17,13 +17,16 @@ BUILD   := build
 LIB     := $(BUILD)/guard.o
 
 # Benign tests: same output with and without Guard.
-BENIGN  := callbacks
+BENIGN  := callbacks api_demo fork_icall
 # Attack tests: hijack when plain, blocked when guarded.
-ATTACK  := fptr_overwrite
+ATTACK  := fptr_overwrite fptr_midfunc ret_overwrite
+# Exhaustion tests: guarded only, must stop with a clear shadow stack error.
+EXHAUST := deep_recursion
 #ATTACK  := fptr_overwrite ret_overwrite
 
 .PHONY: all test clean
 all: $(addprefix $(BUILD)/,$(BENIGN)) \
+     $(addprefix $(BUILD)/,$(EXHAUST)) \
      $(addprefix $(BUILD)/,$(addsuffix .plain,$(ATTACK))) \
      $(addprefix $(BUILD)/,$(addsuffix .guard,$(ATTACK)))
 

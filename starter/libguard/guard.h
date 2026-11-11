@@ -34,12 +34,18 @@ int guard_is_valid(const void *addr);
 _Noreturn void guard_violation(const char *what, const void *addr,
                                const char *file, int line);
 
+/* Report a shadow stack error (overflow, underflow, return address
+ * mismatch) on stderr and abort(). Never returns. */
+_Noreturn void guard_ss_violation(const char *what, const void *addr,
+                                  const char *file, int line);
+
 /* ------------------------------------------------------------------ */
 /* Shadow stack                                                       */
 /* ------------------------------------------------------------------ */
 
-/* Push a return address onto the shadow stack. */
-void guard_ss_push(void *ret);
+/* Push a return address onto the shadow stack.
+ * Overflowing the shadow stack is a violation. */
+void guard_ss_push(void *ret, const char *file, int line);
 
 /* Compare ret with the top of the shadow stack and pop it.
  * A mismatch is a violation. */
@@ -58,20 +64,43 @@ void guard_ss_check_pop(void *ret, const char *file, int line);
 
 #else
 
-/* TODO: check fp, evaluate it exactly once, yield fp.
- * Usage: fp(x)  ->  GUARD_ICALL(fp)(x)                                */
-#define GUARD_ICALL(fp)       (fp)
+/* Check fp against the valid target table, evaluating it exactly once,
+ * and yield the checked value. Usage: fp(x)  ->  GUARD_ICALL(fp)(x)   */
+#define GUARD_ICALL(fp) ({                                          \
+    __typeof__(fp) guard_fp_ = (fp);                                \
+    if (!guard_is_valid((const void *)guard_fp_))                   \
+        guard_violation("icall", (const void *)guard_fp_,           \
+                        __FILE__, __LINE__);                        \
+    guard_fp_;                                                      \
+})
 
-/* TODO: first statement of every function.                            */
-#define GUARD_ENTER()         ((void)0)
+/* First statement of every function: push this function's return
+ * address onto the shadow stack. This must be a macro and not a
+ * function, so __builtin_return_address(0) is evaluated in the frame
+ * of the instrumented function itself.                                */
+#define GUARD_ENTER()                                               \
+    guard_ss_push(__builtin_return_address(0), __FILE__, __LINE__)
 
-/* TODO: evaluate expr once, check the return address,
- * then return. Usage: return x;  ->  GUARD_RETURN(x);
- * NOTE: Must evaluate the expression before the shadow stack check.   */
-#define GUARD_RETURN(expr) return (expr)
+/* Evaluate expr exactly once, then check the return address against
+ * the shadow stack, then return the saved value.
+ * Usage: return x;  ->  GUARD_RETURN(x);
+ * __auto_type (instead of __typeof__) also works when expr is a
+ * function name, since it decays to a function pointer.
+ * do { } while (0) makes the macro a single statement, so it is safe
+ * in unbraced if/else branches.                                       */
+#define GUARD_RETURN(expr) do {                                     \
+    __auto_type guard_ret_ = (expr);                                \
+    guard_ss_check_pop(__builtin_return_address(0),                 \
+                       __FILE__, __LINE__);                         \
+    return guard_ret_;                                              \
+} while (0)
 
-/* TODO: same for void functions.                                      */
-#define GUARD_RETURN_VOID() return
+/* Same for void functions. Usage: return;  ->  GUARD_RETURN_VOID();   */
+#define GUARD_RETURN_VOID() do {                                    \
+    guard_ss_check_pop(__builtin_return_address(0),                 \
+                       __FILE__, __LINE__);                         \
+    return;                                                         \
+} while (0)
 
 #endif /* GUARD_DISABLE */
 

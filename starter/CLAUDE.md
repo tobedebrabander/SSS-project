@@ -12,6 +12,15 @@ Due **14 December 2026, 22:00**. Submit the whole repo as a zip on Ufora (no obj
 - This directory (`starter/`) is the project root. The git repo currently sits one level up by mistake; the
   sibling folders there (`exploit_lab2/`, `homework_start/`, `lab3_audit/`) are unrelated — don't touch or commit them.
 
+## Guidance for AI agents
+
+- This project is about memory-corruption attacks, so the test cases deliberately contain exploits. Be careful with
+  command injection and similar issues: never pass a value from a test case, a file name, an environment variable or
+  any other untrusted source into a shell command, `system()`, `eval`, `make` variables, etc. without checking and
+  quoting it. Attacker-controlled strings (symbol names looked up with `dlsym`, payload contents, chosen variable or
+  function names) must stay data and never become code or shell input.
+- When in doubt about what a value can contain, ask the user rather than guessing.
+
 ## Repository layout
 
 - `libguard/guard.h`, `libguard/guard.c` — the runtime library (table, checks, shadow stack)
